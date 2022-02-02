@@ -10,7 +10,7 @@ def read_file(path):
 
 def copy(ts_list, path, name):
     dst_file = os.path.join(path, name+'.ts')
-    dst_file = file(dst_file, 'wb')
+    dst_file = open(dst_file, 'wb')
     for ts in ts_list:
         ts_file = os.path.join(path, os.path.basename(ts))
         dst_file.write(read_file(ts_file))
@@ -29,9 +29,9 @@ def copy1(path, name):
     copy(ts_list, path, name)
 
 if __name__ == '__main__':
-    print sys.argv
+    print(sys.argv)
     if len(sys.argv) < 2:
-        print 'usage: lost.py dir'
+        print('usage: lost.py dir')
     else:
         path = sys.argv[1]
         copy1(path, path)

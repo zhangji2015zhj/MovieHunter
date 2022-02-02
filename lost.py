@@ -23,10 +23,10 @@ def get_lost_file1(path):
     get_lost_file(ts_list, path)
 
 if __name__ == '__main__':
-    print sys.argv
+    print(sys.argv)
     if len(sys.argv) < 2:
-        print 'usage: lost.py dir'
+        print('usage: lost.py dir')
     else:
         path = sys.argv[1]
-        print get_lost_file(path)
+        print(get_lost_file(path))
     

@@ -3,15 +3,17 @@
 import requests
 import os, sys, time
 import threading
-import urlparse
+import urllib.parse
 
 import lost, merge, search
 
 def utf2gbk(s):
-    return s.decode('utf8').encode('gbk')
+    return s
 
 def save_file(path, data):
     f = open(path, 'wb')
+    if isinstance(data, str) :
+        data = data.encode()
     f.write(data)
     f.close()
 
@@ -79,7 +81,7 @@ class ThreadTaskCount(object):
     @classmethod
     def printf(self):
         for t in ThreadTaskCount._thread_list:
-            print t['tid'], t['n']
+            print((t['tid'], t['n']))
 
 class MyThread(threading.Thread):
     def __init__(self, url_list, path):
@@ -122,10 +124,10 @@ def download_thread(_url_list, path):
             t.setDaemon(True)
             t.start()
             #print '[+] start thread = ', ThreadTaskCount().count()
-            print '.',
+            print('.', end=' ')
         time.sleep(0.01)
 
-    print '\n[+] pop task Finish.'
+    print('\n[+] pop task Finish.')
     # ThreadTaskCount.join()
 
     pre_count = 0
@@ -136,7 +138,7 @@ def download_thread(_url_list, path):
             pre_count = ThreadTaskCount.count()
             start_tm = time.time()
             start_tm_count = pre_count
-            print '[+} Task %d is running.' % pre_count
+            print('[+} Task %d is running.' % pre_count)
         
         '''
         if ThreadTaskCount.count() < 10 and start_tm == 0:
@@ -145,16 +147,19 @@ def download_thread(_url_list, path):
             start_tm_count = ThreadTaskCount.count()
         '''
         if start_tm > 0 and (time.time() - start_tm > 5*60):
-            print '[-] Task timeout...'
+            print('[-] Task timeout...')
             ThreadTaskCount.printf()
             break
 
         time.sleep(1)
 
-    print '[+] All task finish.'
+    print('[+] All task finish.')
 
 def parse_m3mu5(url, name):
-    result = urlparse.urlsplit(url)
+    print(url)
+    print(name)
+    result = urllib.parse.urlsplit(url)
+    print(result)
     host = result.scheme +'://' + result.netloc + '/'
     urldir = os.path.dirname(url) + '/'
     urlname = os.path.basename(url)
@@ -172,19 +177,23 @@ def parse_m3mu5(url, name):
     m3u8_list = [ts for ts in m3u8_list if ts.find('.m3u8') != -1]
 
     if len(m3u8_list) <= 0:
-        print data
+        print(data)
         return ""
 
     m3u8 = m3u8_list[0]
     if m3u8.find('/') == -1:
-        url = urlparse.urljoin(urldir, m3u8)
+        url = urllib.parse.urljoin(urldir, m3u8)
     else:
-        url = urlparse.urljoin(host, m3u8)
+        url = urllib.parse.urljoin(host, m3u8)
 
     return url
 
 def parse_ts_list(url, name):    
-    result = urlparse.urlsplit(url)
+    print(url)
+    print(name)
+    result = urllib.parse.urlsplit(url)
+    print(result)
+
     host = result.scheme +'://' + result.netloc + '/'
     urldir = os.path.dirname(url) + '/'
     urlname = os.path.basename(url)
@@ -192,85 +201,98 @@ def parse_ts_list(url, name):
     m3u8_file = os.path.join(name, urlname)
     
     data = ''
-    if not os.path.exists(m3u8_file):
-        req = requests.get(url)
-        data = req.content
-        save_file(m3u8_file, data)
-    else:
-        data = read_file(m3u8_file)
+    req = requests.get(url)
+    data = req.content
+    save_file(m3u8_file, data)
 
-    ts_list = data.split('\n')
+
+    ts_list = data.decode().split('\n')
     ts_list = [ts for ts in ts_list if ts.find('.ts') != -1]
 
     ts_url_list = []
 
     for ts in ts_list:
         if ts.find('/') == -1:
-            ts_url_list.append(urlparse.urljoin(urldir, ts))
+            ts_url_list.append(urllib.parse.urljoin(urldir, ts))
         else:
-            ts_url_list.append(urlparse.urljoin(host, ts))
+            ts_url_list.append(urllib.parse.urljoin(host, ts))
             
     return ts_url_list
 
 def download(url, name):
     try:
-        print '[+] Start downloading ', name
+        print('[+] Start downloading ', name)
         if not os.path.exists(name):
             os.mkdir(name)
 
-        print '[+] start parse ts list...'
+        print('[+] start parse ts list...')
 
         ts_url_list = parse_ts_list(url, name)
+        print("ts_url_list:")
+        print(ts_url_list)
         if len(ts_url_list) == 0:
             url = parse_m3mu5(url, name)
             if url == '':
-                print utf2gbk('[-]解析m3u8失败')
+                print(utf2gbk('[-]解析m3u8失败'))
                 return
             ts_url_list = parse_ts_list(url, name)
             if len(ts_url_list) <= 0:
-                print utf2gbk('[-]解析2次m3u8失败')
+                print(utf2gbk('[-]解析2次m3u8失败'))
                 return
 
-        print '[+] start parse ts list finish. ', len(ts_url_list)
+        print('[+] start parse ts list finish. ', len(ts_url_list))
         # print ts_url_list[0]
 
         ts_list_file = os.path.join(name, 'ts_list.txt')
+        l   =  '\n'.join(ts_url_list)
         save_file(ts_list_file, '\n'.join(ts_url_list))
 
-        print '[+] start download ts file...'
+        print('[+] start download ts file...')
         # download_ts_file(ts_url_list[0], os.path.join(name, os.path.basename(ts_url_list[0])))
         download_thread(ts_url_list, name)
 
-        print '[+] Download ts file finish'
+        print('[+] Download ts file finish')
 
         lost_ts_url = lost.get_lost_file(ts_url_list, name)
         lost_cnt = 0
         while len(lost_ts_url) > 0:
-            print '[+] lost some file: ', lost_ts_url
+            print('[+] lost some file: ', lost_ts_url)
             if lost_cnt > 10:
-                print '[-] Lost some ts file,repeat too many times, failed.'
+                print('[-] Lost some ts file,repeat too many times, failed.')
                 return
             time.sleep(10)
             download_thread(lost_ts_url, name)
             lost_cnt += 1
 
-        print utf2gbk('[+] 开始合并...')
+        print(utf2gbk('[+] 开始合并...'))
         #print len(ts_url_list)
         merge.copy(ts_url_list, name, name)
-        print utf2gbk('[+] 完成')
+        print(utf2gbk('[+] 完成'))
 
     except Exception as e:
-        print e
+        print(e)
 
+# if __name__ == '__main__':
+#     if len(sys.argv) < 2:
+#         print(utf2gbk('usage: main.py 电影名'))
+#     else:
+#         name = sys.argv[1]
+#         url = search.search(name)
+#         if url != None:
+#             print('[+] Find film url: ', url)
+#             download(utf2gbk(url), name)
+#         else:
+#             print('[-] search %s failed' % name)
+
+            # "绅士和小姐"
+    
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print utf2gbk('usage: main.py 电影名')
-    else:
-        name = sys.argv[1]
-        url = search.search(name)
+        name = "testts"
+        # url = search.search(name)
+        url = "http://39.134.66.66/PLTV/88888888/224/3221225495/index.m3u8"
+
         if url != None:
-            print '[+] Find film url: ', url
+            print('[+] Find film url: ', url)
             download(utf2gbk(url), name)
         else:
-            print '[-] search %s failed' % name
-    
+            print('[-] search %s failed' % name)
